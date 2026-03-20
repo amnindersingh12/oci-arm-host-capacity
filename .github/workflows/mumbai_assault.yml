@@ -1,23 +1,27 @@
 name: Mumbai ARM Assault
-
 on:
-  workflow_dispatch: # Allows manual start
+  workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *' # Wakes up every 5 minutes
-
+    - cron: '*/5 * * * *'
 jobs:
-  launch:
+  run-assault:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
+      
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-
+          
       - name: Install Dependencies
-        run: composer install --prefer-dist --no-progress
+        run: composer install
+
+      # THIS IS THE MISSING STEP
+      - name: Create Key File
+        run: |
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
 
       - name: Start Hammering
         run: php runner.php
@@ -26,11 +30,10 @@ jobs:
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
           OCI_TENANCY_ID: ${{ secrets.OCI_TENANCY_ID }}
           OCI_KEY_FINGERPRINT: ${{ secrets.OCI_KEY_FINGERPRINT }}
-          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+          # CHANGE THIS LINE BELOW:
+          OCI_PRIVATE_KEY_FILENAME: /home/runner/work/oci-arm-host-capacity/oci-arm-host-capacity/key.pem
           OCI_AVAILABILITY_DOMAIN: ${{ secrets.OCI_AVAILABILITY_DOMAIN }}
           OCI_SUBNET_ID: ${{ secrets.OCI_SUBNET_ID }}
           OCI_IMAGE_ID: ${{ secrets.OCI_IMAGE_ID }}
-          # These ensure the runner knows exactly what you want
           OCI_OCPUS: 4
           OCI_MEMORY_IN_GBS: 24
-          OCI_SHAPE: VM.Standard.A1.Flex
