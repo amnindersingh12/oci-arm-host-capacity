@@ -98,87 +98,35 @@ function hhb_exec(string $cmd, string $stdin = "", string &$stdout = null, strin
 $cmd = "php index.php --debug 2>&1";
 
 for (;;) {
-    echo ".";
+    echo "Attempting to acquire ARM slot in Mumbai...\n";
     $ret = hhb_exec($cmd, "", $stdout, $stderr, true);
-    $expected = array(
-        'ret' => 0,
-        'stdout' => '{
-          "code": "InternalError",
-          "message": "Out of host capacity."
-      }
-      {
-          "code": "InternalError",
-          "message": "Out of host capacity."
-      }
-      {
-          "code": "InternalError",
-          "message": "Out of host capacity."
-      }
-      ',
-        'stderr' => '',
-    );
-    $expected['stdout'] = trim($expected['stdout']);
-    $actual = array(
-        'ret' => $ret,
-        'stdout' => $stdout,
-        'stderr' => $stderr,
-    );
-    $actual['stdout'] = trim($actual['stdout']);
-    if (
-        str_starts_with($actual['stdout'], 'PHP Fatal error:  Uncaught Hitrov\\Exception\\TooManyRequestsWaiterException: Will retry after')
-        || str_contains($actual['stdout'], '"TooManyRequests"')
-    ) {
-        // Will retry after 83 seconds
-        preg_match('/Will retry after (\d+) seconds/', $actual['stdout'], $matches);
-        //var_dump($matches);
-        $seconds = (int) ($matches[1] ?? 100);
-        $seconds = 1000;
-        for ($i = 1; $i < ($seconds + 1); ++$i) {
-            echo "{$i}/{$seconds}\r";
-            sleep(1);
-        }
-        echo "\n";
+    
+    $actual_output = trim($stdout);
+
+    // 1. Check for Success (If the output DOES NOT contain "InternalError" or "TooManyRequests")
+    if ($ret === 0 && str_contains($actual_output, '"id": "ocid1.instance')) {
+        echo "\n!!! VICTORY !!! Instance Created successfully.\n";
+        exit(0); // This stops the GitHub Action with a GREEN checkmark
+    }
+
+    // 2. Handle Capacity Error (This is what you are seeing now)
+    if (str_contains($actual_output, 'Out of host capacity.')) {
+        echo " [Status] Mumbai is full. Waiting 60 seconds before retrying...\n";
+        sleep(60); 
+        continue; // Restarts the loop
+    }
+
+    // 3. Handle Rate Limiting (Too Many Requests)
+    if (str_contains($actual_output, 'TooManyRequests') || str_contains($actual_output, 'Will retry after')) {
+        preg_match('/Will retry after (\d+) seconds/', $actual_output, $matches);
+        $wait = (int)($matches[1] ?? 120);
+        echo " [Throttle] Oracle is rate-limiting us. Waiting {$wait} seconds...\n";
+        sleep($wait);
         continue;
     }
-    if (
-        preg_replace('/\s+/', '', $expected['stdout']) !== preg_replace('/\s+/', '', $actual['stdout'])
-    ) {
-        echo "Unexpected STDOUT output, dumping...\n";
-        $actual = var_export($actual, true);
-        $expected = var_export($expected, true);
-        file_put_contents(__FILE__ . ".actual", $actual);
-        file_put_contents(__FILE__ . ".expected", $expected);
-        echo "Actual output:\n$actual\n";
-        die();
-    }
-    if ($expected['stderr'] !== $actual['stderr']) {
-        echo "Unexpected STDERR output, dumping...\n";
-        $actual = var_export($actual, true);
-        $expected = var_export($expected, true);
-        file_put_contents(__FILE__ . ".actual", $actual);
-        file_put_contents(__FILE__ . ".expected", $expected);
-        echo "Actual output:\n$actual\n";
-        die();
-    }
-    if ($expected['ret'] !== $actual['ret']) {
-        echo "Unexpected return code, dumping...\n";
-        $actual = var_export($actual, true);
-        $expected = var_export($expected, true);
-        file_put_contents(__FILE__ . ".actual", $actual);
-        file_put_contents(__FILE__ . ".expected", $expected);
-        echo "Actual output:\n$actual\n";
-        die();
-    }
-    for($i=1,$imax=701;$i<$imax; ++$i){
-        echo "{$i}/{$imax}\r";
-        sleep(1);
-    }
-    continue;
-    echo "Unexpected output, dumping...\n";
-    $actual = var_export($actual, true);
-    $expected = var_export($expected, true);
-    file_put_contents(__FILE__ . ".actual", $actual);
-    file_put_contents(__FILE__ . ".expected", $expected);
-    echo "Actual output:\n$actual\n";
-    die();
+
+    // 4. Handle Real Errors (If something is actually broken)
+    echo "Unexpected Output Received. Dumping for debug:\n";
+    echo $actual_output;
+    die("\nScript stopped to prevent infinite error loop.\n");
 }
