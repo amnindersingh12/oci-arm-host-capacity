@@ -95,7 +95,8 @@ function hhb_exec(string $cmd, string $stdin = "", string &$stdout = null, strin
     return $proc_ret;
 }
 
-$cmd = "php index.php 2>&1";
+$cmd = "php index.php --debug 2>&1";
+
 for (;;) {
     echo ".";
     $ret = hhb_exec($cmd, "", $stdout, $stderr, true);
