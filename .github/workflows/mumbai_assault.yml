@@ -1,4 +1,7 @@
 name: Mumbai ARM Assault
+concurrency:
+  group: mumbai-hammer
+  cancel-in-progress: false
 on:
   workflow_dispatch:
   schedule:
