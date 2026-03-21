@@ -4,8 +4,8 @@ concurrency:
   cancel-in-progress: false
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/5 * * * *'
+  #schedule:
+  #  - cron: '*/5 * * * *'
 jobs:
   launch:
     runs-on: ubuntu-latest
